@@ -1,0 +1,29 @@
+kind: pipeline
+name: default
+
+steps:
+- name: build and push docker
+  image: plugins/docker
+  settings:
+    registry: registry.lab.bctc.io
+    dry_run: false
+    username:
+      from_secret: DOCKER_REGISTRY_USERNAME
+    password:
+      from_secret: DOCKER_REGISTRY_PASSWORD
+    repo: registry.lab.bctc.io/veor-app/app
+    tags: latest
+  when:
+    branch:
+    - main
+- name: build application
+  image: plugins/docker
+  dry_run: true
+  settings:
+    tags: latest
+  when:
+    event:
+    - push
+    ref:
+      include:
+      - refs/pull/**

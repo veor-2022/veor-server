@@ -1,0 +1,263 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+model User {
+  id                      String                @id @default(uuid()) @db.Uuid
+  email                   String                @unique
+  firstName               String
+  lastName                String
+  nickname                String?
+  password                String
+  profilePicture          String?
+  receiveNewsletter       Boolean               @default(false)
+  emailVerified           Boolean               @default(false)
+  emailVerificationToken  String?
+  languages               Language[]
+  notificationTypes       NotificationType[]
+  joinDate                DateTime              @default(now())
+  blocked                 User[]                @relation("Blocked")
+  blockedBy               User[]                @relation("Blocked")
+  supports                User[]                @relation("Supports")
+  supportsOf              User[]                @relation("Supports")
+  requestsSent            Request[]             @relation("RequestsSent")
+  requestsReceived        Request[]             @relation("RequestsReceived")
+  notifications           Notification[]
+  notificationsRefferedBy Notification[]        @relation("UserReferringTo")
+  authCodes               AuthCode[]
+  checkIns                CheckIn[]
+  messages                Message[]
+  reviews                 Review[]
+  groups                  GroupEnrollment[]
+  chats                   Chat[]
+  listenerProfile         ListenerProfile?
+  programs                Program[]
+  pushNotificationTokens  String?
+  feedback                Feedback[]
+  firebaseUID             String?
+  chatRequests            ChatRequest[]
+  notificationSetting     NotificationSettings?
+}
+
+model ListenerProfile {
+  id      String   @id @default(uuid()) @db.Uuid
+  about   String?
+  topics  Topic[]
+  reviews Review[]
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId  String   @unique @db.Uuid
+}
+
+model Review {
+  id         String          @id @default(uuid()) @db.Uuid
+  rating     Float
+  content    String?
+  listener   ListenerProfile @relation(fields: [listenerId], references: [id], onDelete: Cascade)
+  listenerId String          @db.Uuid
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String          @db.Uuid
+  createAt   DateTime        @default(now())
+}
+
+model Feedback {
+  id       String   @id @default(uuid()) @db.Uuid
+  resolved Boolean  @default(false)
+  content  String
+  sentAt   DateTime @default(now())
+  sender   User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  senderId String   @db.Uuid
+}
+
+model CheckIn {
+  id      String   @id @default(uuid()) @db.Uuid
+  takenAt DateTime @default(now())
+  notes   String?
+  tags    Topic[]
+  emotion Emotion
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId  String   @db.Uuid
+}
+
+model Message {
+  id      Int      @id @default(autoincrement())
+  content String
+  sentAt  DateTime @default(now())
+  sender  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId  String   @db.Uuid
+  group   Group?   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId String?  @db.Uuid
+  chat    Chat?    @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  chatId  String?  @db.Uuid
+  likes   Int      @default(0)
+}
+
+model Chat {
+  id            String       @id @default(uuid()) @db.Uuid
+  users         User[] // Only 2 and can be 2 non-listeners if they are boths supports
+  messages      Message[]
+  topic         Topic
+  createdAt     DateTime     @default(now()) // When listeners were requested
+  needsListener Boolean      @default(true)
+  language      Language[]   @default([ENGLISH])
+  sessionEnded  Boolean      @default(false)
+  ChatRequest   ChatRequest?
+}
+
+model ChatRequest {
+  id          String     @id @default(uuid()) @db.Uuid
+  requester   User       @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+  requesterId String     @db.Uuid
+  topic       Topic
+  language    Language[] @default([ENGLISH])
+  createdAt   DateTime   @default(now())
+  chat        Chat?      @relation(fields: [chatId], references: [id])
+  chatId      String?    @unique @db.Uuid
+}
+
+model Group {
+  id              String            @id @default(uuid()) @db.Uuid
+  public          Boolean           @default(false)
+  title           String
+  description     String
+  meetingInfo     String?
+  meetingSchedule String?
+  meetingLink     String?
+  guidelines      String
+  canvas          Int // Index of canvas array not filename
+  topic           Topic
+  messages        Message[]
+  members         GroupEnrollment[]
+  relatedRequests Request[]
+}
+
+model GroupEnrollment {
+  id      String            @id @default(uuid()) @db.Uuid
+  status  GroupMemberStatus @default(USER)
+  group   Group             @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId String            @db.Uuid
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId  String            @db.Uuid
+}
+
+model Program {
+  id      String        @id @default(uuid()) @db.Uuid
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId  String        @db.Uuid
+  answers String[] //Short answer only
+  status  ProgramStatus @default(INCOMPLETE)
+  type    ProgramType
+}
+
+model Notification {
+  id                String           @id @default(uuid()) @db.Uuid
+  type              NotificationType
+  hide              Boolean          @default(false)
+  title             String
+  icon              String
+  content           String
+  createdAt         DateTime         @default(now())
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId            String           @db.Uuid
+  userReferringTo   User             @relation("UserReferringTo", fields: [userReferringToId], references: [id])
+  userReferringToId String           @db.Uuid
+}
+
+model Request {
+  id             String           @id @default(uuid()) @db.Uuid
+  updatedAt      DateTime         @updatedAt
+  from           User             @relation("RequestsSent", fields: [fromId], references: [id], onDelete: Cascade)
+  fromId         String           @db.Uuid
+  to             User             @relation("RequestsReceived", fields: [toId], references: [id], onDelete: Cascade)
+  toId           String           @db.Uuid
+  type           NotificationType
+  relatedGroup   Group?           @relation(fields: [relatedGroupId], references: [id], onDelete: Cascade)
+  relatedGroupId String?          @db.Uuid
+  status         RequestStatus    @default(PENDING)
+  hideFrom       Boolean          @default(false)
+  hideTo         Boolean          @default(false)
+}
+
+model AuthCode {
+  code      String   @id
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String   @db.Uuid
+}
+
+model NotificationSettings {
+  id                   String  @id @default(uuid()) @db.Uuid
+  pendingChatRequests  Boolean @default(true)
+  newMessages          Boolean @default(true)
+  addToSupportsRequest Boolean @default(true)
+  groupInvitations     Boolean @default(true)
+  groupUpdates         Boolean @default(true)
+  newMembers           Boolean @default(true)
+  newGroupMessage      Boolean @default(true)
+  newsletters          Boolean @default(false)
+  user                 User    @relation(fields: [userId], references: [id])
+  userId               String  @unique @db.Uuid
+}
+
+enum NotificationType {
+  GROUP_INVITATION
+  FACILITATOR_INVITATION
+  ADD_TO_SUPPORTS_REQUEST
+  GROUP_UPDATE
+  NEW_MEMBER
+}
+
+enum Language {
+  ENGLISH
+  MANDARIN
+}
+
+enum Topic {
+  RELATIONSHIP
+  FRIENDSHIP
+  FAMILY
+  PEER
+  MARRIAGE
+  SELF_RELATIONSHIP
+  SPIRITUALITY
+}
+
+enum Emotion {
+  HAPPY
+  GRATEFUL
+  CONTENT
+  EXCITED
+  STRESSED
+  ANGRY
+  ANXIOUS
+  SAD
+}
+
+enum GroupMemberStatus {
+  FACILITATOR
+  CO_FACILITATOR
+  USER
+}
+
+enum RequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum ProgramStatus {
+  INCOMPLETE
+  REVIEWING
+  ACCEPTED
+  REJECTED
+}
+
+enum ProgramType {
+  LISTENER
+  FACILITATOR
+}

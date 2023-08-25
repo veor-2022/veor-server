@@ -1,0 +1,18 @@
+version: '3'
+services:
+  veor-api:
+    image: 'registry.lab.bctc.io/veor-app/app:latest'
+    networks:
+      - proxy
+    ports:
+      - 3005
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.veor-app.rule=Host(`veor.lab.bctc.io`)
+      - traefik.http.routers.veor-app.tls=true
+      - traefik.http.routers.veor-app.tls.certresolver=le
+      - traefik.docker.network=proxy
+
+networks:
+  proxy:
+    external: true
