@@ -5,7 +5,7 @@ services:
     networks:
       - proxy
     ports:
-      - 3005
+      - "423:3005"
     labels:
       - traefik.enable=true
       - traefik.http.routers.veor-app.rule=Host(`veor.lab.bctc.io`)
